@@ -10,7 +10,6 @@ contract LoyaltyProgram {
     uint256 public totalPoints = 0;             // Net points: Issued - Redeemed
     uint256 public totalPointsIssued = 0;       // Total points issued since loyalty program started (incl. points exchanged in)
     uint256 public totalPointsRedeemed = 0;     // Total points redeemed since loyalty program started (incl. points exchanged out)
-    bool public isRegistered = true;
 
     enum TransactionType {
         Earned,
@@ -67,15 +66,16 @@ contract LoyaltyProgram {
     function registerMember(string memory _firstName, string memory _lastName) external {
         require(
             !members[tx.origin].isRegistered,
-            "Account already registered as Member."
+            "You have already registered as a member of the program."
         );
+
         Member memory member = Member(tx.origin, _firstName, _lastName, 0, true);
         members[tx.origin] = member;
         membersAddress.push(tx.origin);
     }
 
     function issuePoints(uint256 _points, address _memberAddress) external onlyIssuer {
-        members[_memberAddress].points = members[_memberAddress].points + _points;
+        members[_memberAddress].points += _points;
 
         transactionsInfo.push(PointsTransaction({
             memberAddress: _memberAddress,
@@ -90,10 +90,10 @@ contract LoyaltyProgram {
     function redeemPoints(uint256 _points) external onlyRegisteredMember {
         require(
             members[tx.origin].points >= _points,
-            "Member has insufficient points."
+            "You have insufficient points for redemption."
         );
 
-        members[tx.origin].points = members[tx.origin].points - _points;
+        members[tx.origin].points -= _points;
 
         transactionsInfo.push(PointsTransaction({
             memberAddress: tx.origin,
@@ -108,7 +108,7 @@ contract LoyaltyProgram {
     function exchangePoints(int256 _points) external onlyRegisteredMember {
         require(
             int(members[tx.origin].points) >= -_points,
-            "Member has insufficient points."
+            "You have insufficient points for exchange."
         );
 
         members[tx.origin].points = uint(int(members[tx.origin].points) + _points);

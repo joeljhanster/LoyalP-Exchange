@@ -6,7 +6,6 @@ contract ExchangeMember {
     address owner;
     string public firstName;
     string public lastName;
-    bool public isRegistered = true;
     
     struct ProgramPoints {
         address programAddress;
@@ -27,6 +26,14 @@ contract ExchangeMember {
         lastName = _lastName;
     }
 
+    modifier onlyJoinedProgram(address _programAddress) {
+        require(
+            programPoints[_programAddress].isRegistered,
+            "You have not joined the loyalty program."
+        );
+        _;
+    }
+
     function initPoints(address _programAddress, string memory _programName) external {
         require(
             !programPoints[_programAddress].isRegistered,
@@ -42,19 +49,14 @@ contract ExchangeMember {
         programPointsAddress.push(_programAddress);
     }
 
-    function addPoints(address _programAddress, uint256 _points) external {
-        require(
-            programPoints[_programAddress].isRegistered,
-            "Program points not initiated."
-        );
-
+    function addPoints(address _programAddress, uint256 _points) external onlyJoinedProgram(_programAddress) {
         programPoints[_programAddress].points += _points;
     }
 
-    function deductPoints(address _programAddress, uint256 _points) external {
+    function deductPoints(address _programAddress, uint256 _points) external onlyJoinedProgram(_programAddress) {
         require(
-            programPoints[_programAddress].isRegistered && programPoints[_programAddress].points >= _points,
-            "Program points not initiated or not enough points to deduct."
+            programPoints[_programAddress].points >= _points,
+            "You do not have enough points to deduct."
         );
 
         programPoints[_programAddress].points -= _points;

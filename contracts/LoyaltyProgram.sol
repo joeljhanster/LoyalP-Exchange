@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.17;
+import "./Events.sol";
+import { TransactionType } from "./Enums.sol";
 
 contract LoyaltyProgram {
     address public issuerAddress;
@@ -10,12 +12,6 @@ contract LoyaltyProgram {
     uint256 public totalPoints = 0;             // Net points: Issued - Redeemed
     uint256 public totalPointsIssued = 0;       // Total points issued since loyalty program started (incl. points exchanged in)
     uint256 public totalPointsRedeemed = 0;     // Total points redeemed since loyalty program started (incl. points exchanged out)
-
-    enum TransactionType {
-        Earned,
-        Redeemed,
-        Exchanged
-    }
 
     struct Member {
         address memberAddress;
@@ -75,16 +71,32 @@ contract LoyaltyProgram {
     }
 
     function issuePoints(uint256 _points, address _memberAddress) external onlyIssuer {
+        uint256 fromPoints = uint(members[_memberAddress].points);
         members[_memberAddress].points += _points;
+        uint256 toPoints = uint(members[_memberAddress].points);
 
-        transactionsInfo.push(PointsTransaction({
+        PointsTransaction memory pointsTransaction = PointsTransaction({
             memberAddress: _memberAddress,
             transactionType: TransactionType.Earned,
             points: int(_points)
-        }));
+        });
+        transactionsInfo.push(pointsTransaction);
 
         totalPoints += _points;
         totalPointsIssued += _points;
+
+        emit Events.PointsEvent(
+            issuerAddress,
+            issuerName,
+            programName,
+            _memberAddress,
+            members[_memberAddress].firstName,
+            members[_memberAddress].lastName,
+            pointsTransaction.transactionType,
+            pointsTransaction.points,
+            fromPoints,
+            toPoints
+        );
     }
 
     function redeemPoints(uint256 _points) external onlyRegisteredMember {
@@ -93,16 +105,32 @@ contract LoyaltyProgram {
             "You have insufficient points for redemption."
         );
 
+        uint256 fromPoints = uint(members[tx.origin].points);
         members[tx.origin].points -= _points;
+        uint256 toPoints = uint(members[tx.origin].points);
 
-        transactionsInfo.push(PointsTransaction({
+        PointsTransaction memory pointsTransaction = PointsTransaction({
             memberAddress: tx.origin,
             transactionType: TransactionType.Redeemed,
             points: int(_points)
-        }));
+        });
+        transactionsInfo.push(pointsTransaction);
 
         totalPoints -= _points;
         totalPointsRedeemed += _points;
+
+        emit Events.PointsEvent(
+            issuerAddress,
+            issuerName,
+            programName,
+            tx.origin,
+            members[tx.origin].firstName,
+            members[tx.origin].lastName,
+            pointsTransaction.transactionType,
+            pointsTransaction.points,
+            fromPoints,
+            toPoints
+        );
     }
 
     function exchangePoints(int256 _points) external onlyRegisteredMember {
@@ -111,13 +139,16 @@ contract LoyaltyProgram {
             "You have insufficient points for exchange."
         );
 
+        uint256 fromPoints = uint(members[tx.origin].points);
         members[tx.origin].points = uint(int(members[tx.origin].points) + _points);
-
-        transactionsInfo.push(PointsTransaction({
+        uint256 toPoints = uint(members[tx.origin].points);
+        
+        PointsTransaction memory pointsTransaction = PointsTransaction({
             memberAddress: tx.origin,
             transactionType: TransactionType.Exchanged,
             points: _points
-        }));
+        });
+        transactionsInfo.push(pointsTransaction);
 
         totalPoints = uint(int(totalPoints) + _points);
 
@@ -126,6 +157,19 @@ contract LoyaltyProgram {
         } else {
             totalPointsIssued += uint(_points);
         }
+
+        emit Events.PointsEvent(
+            issuerAddress,
+            issuerName,
+            programName,
+            tx.origin,
+            members[tx.origin].firstName,
+            members[tx.origin].lastName,
+            pointsTransaction.transactionType,
+            pointsTransaction.points,
+            fromPoints,
+            toPoints
+        );
     }
 
     function membersLength() public view returns(uint256) {

@@ -3,11 +3,10 @@
 pragma solidity ^0.8.17;
 
 contract ExchangePartner {
-    address originAddress;
+    address public originAddress;
     string public originPartnerName;
     string public originProgramName;
     uint256 public redemptionRate;
-    uint256 public id = 0;
 
     struct Partnership {
         address destAddress;

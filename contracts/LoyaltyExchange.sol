@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.17;
+import "./Events.sol";
 import "./ExchangeMember.sol";
 import "./ExchangePartner.sol";
 import "./LoyaltyProgram.sol";
@@ -28,25 +29,6 @@ contract LoyaltyExchange {
         uint256 amountPaid;
         bool isApproved;
     }
-
-    event ExchangeEvent(
-        uint256 indexed transactionId,
-        address indexed memberAddress,
-        address originAddress,
-        address destAddress,
-        string originProgramName,
-        string destProgramName,
-        uint256 originPoints,
-        uint256 destPoints
-    );
-
-    event PaymentEvent(
-        uint256 indexed transactionId,
-        address indexed payerAddress,
-        address indexed payeeAddress,
-        uint256 amountPaid,
-        bool isApproved
-    );
 
     mapping(address => LoyaltyProgram) public loyaltyPrograms;
     mapping(address => ExchangeMember) public exchangeMembers;
@@ -88,6 +70,23 @@ contract LoyaltyExchange {
         _;
     }
 
+    function registerMember(string memory _firstName, string memory _lastName) public {
+        require(
+            address(exchangeMembers[tx.origin]) == address(0x0),
+            "You have already registered as a member on the loyalty exchange."
+        );
+
+        ExchangeMember exchangeMember = new ExchangeMember(_firstName, _lastName);
+        exchangeMembers[tx.origin] = exchangeMember;
+        exchangeMembersAddress.push(tx.origin);
+
+        emit Events.RegisteredMemberEvent(
+            exchangeMember.memberAddress(),
+            exchangeMember.firstName(),
+            exchangeMember.lastName()
+        );
+    }
+
     function registerPartner(
         string memory _issuerName,
         string memory _programName,
@@ -102,18 +101,14 @@ contract LoyaltyExchange {
         exchangePartners[tx.origin] = exchangePartner;
         exchangePartnersAddress.push(tx.origin);
 
-        createLoyaltyProgram(_issuerName, _programName, _redemptionRate);
-    }
-
-    function registerMember(string memory _firstName, string memory _lastName) public {
-        require(
-            address(exchangeMembers[tx.origin]) == address(0x0),
-            "You have already registered as a member on the loyalty exchange."
+        emit Events.RegisteredPartnerEvent(
+            exchangePartner.originAddress(),
+            exchangePartner.originPartnerName(),
+            exchangePartner.originProgramName(),
+            exchangePartner.redemptionRate()
         );
 
-        ExchangeMember exchangeMember = new ExchangeMember(_firstName, _lastName);
-        exchangeMembers[tx.origin] = exchangeMember;
-        exchangeMembersAddress.push(tx.origin);
+        createLoyaltyProgram(_issuerName, _programName, _redemptionRate);
     }
 
     function createLoyaltyProgram(
@@ -129,6 +124,13 @@ contract LoyaltyExchange {
         LoyaltyProgram loyaltyProgram = new LoyaltyProgram(_issuerName, _programName, _redemptionRate);
         loyaltyPrograms[tx.origin] = loyaltyProgram;
         loyaltyProgramsAddress.push(tx.origin);
+
+        emit Events.RegisteredProgramEvent(
+            loyaltyProgram.issuerAddress(),
+            loyaltyProgram.issuerName(),
+            loyaltyProgram.programName(),
+            loyaltyProgram.redemptionRate()
+        );
     }
 
     function joinLoyaltyProgram(address _issuerAddress) 
@@ -138,6 +140,15 @@ contract LoyaltyExchange {
 
         exchangeMember.initPoints(_issuerAddress, loyaltyProgram.programName());
         loyaltyProgram.registerMember(exchangeMember.firstName(), exchangeMember.lastName());
+
+        emit Events.JoinedProgramEvent(
+            exchangeMember.memberAddress(),
+            exchangeMember.firstName(),
+            exchangeMember.lastName(),
+            loyaltyProgram.issuerAddress(),
+            loyaltyProgram.issuerName(),
+            loyaltyProgram.programName()
+        );
     }
 
     function getDestPoints(address _originAddress, address _destAddress, uint256 _originPoints)
@@ -193,6 +204,17 @@ contract LoyaltyExchange {
         exchangeTransactions[exchangeId] = exchangeTransaction;
         exchangeTransactionsInfo.push(exchangeId);
 
+        emit Events.ExchangeEvent(
+            exchangeTransaction.transactionId,
+            exchangeTransaction.memberAddress,
+            exchangeTransaction.originAddress,
+            exchangeTransaction.destAddress,
+            exchangeTransaction.originProgramName,
+            exchangeTransaction.destProgramName,
+            exchangeTransaction.originPoints,
+            exchangeTransaction.destPoints
+        );
+
         exchangeId++;
 
         ExchangePartner originPartner = exchangePartners[_originAddress];
@@ -226,6 +248,14 @@ contract LoyaltyExchange {
         paymentTransactions[paymentId] = paymentTransaction;
         paymentTransactionsInfo.push(paymentId);
 
+        emit Events.PaymentEvent(
+            paymentTransaction.transactionId,
+            paymentTransaction.payerAddress,
+            paymentTransaction.payeeAddress,
+            paymentTransaction.amountPaid,
+            paymentTransaction.isApproved
+        );
+        
         paymentId++;
     }
 
@@ -251,6 +281,14 @@ contract LoyaltyExchange {
             paymentTransaction.payerAddress,
             payer.redemptionRate(),
             _amountPaid
+        );
+
+        emit Events.PaymentEvent(
+            paymentTransaction.transactionId,
+            paymentTransaction.payerAddress,
+            paymentTransaction.payeeAddress,
+            paymentTransaction.amountPaid,
+            paymentTransaction.isApproved
         );
     }
 

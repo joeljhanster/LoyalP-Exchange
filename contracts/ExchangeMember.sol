@@ -3,7 +3,7 @@
 pragma solidity ^0.8.17;
 
 contract ExchangeMember {
-    address owner;
+    address public memberAddress;
     string public firstName;
     string public lastName;
     
@@ -21,7 +21,7 @@ contract ExchangeMember {
         string memory _firstName,
         string memory _lastName
     ) {
-        owner = tx.origin;
+        memberAddress = tx.origin;
         firstName = _firstName;
         lastName = _lastName;
     }
